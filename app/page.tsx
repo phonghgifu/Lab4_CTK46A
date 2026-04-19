@@ -1,79 +1,145 @@
-import { createClient } from '@/lib/supabase/server'
+import Link from 'next/link'
+import { createClient } from '@lib/supabase/server'
 
-export default async function Home() {
+const POSTS_PER_PAGE = 3
+
+interface HomePageProps {
+  searchParams: Promise<{ page?: string }>
+}
+
+export default async function HomePage({ searchParams }: HomePageProps) {
   const supabase = await createClient()
+  
+  const params = await searchParams
+  const currentPage = Math.max(1, parseInt(params.page || '1'))
+  const offset = (currentPage - 1) * POSTS_PER_PAGE
 
-  // Test connection by getting session
-  const { data: { session } } = await supabase.auth.getSession()
+  // Lấy tổng số bài viết
+  const { count } = await supabase
+    .from('posts')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'published')
+
+  // Lấy bài viết của trang hiện tại
+  const { data: posts, error } = await supabase
+    .from('posts')
+    .select(`
+      *,
+      profiles (
+        display_name,
+        avatar_url
+      )
+    `)
+    .eq('status', 'published')
+    .order('published_at', { ascending: false })
+    .range(offset, offset + POSTS_PER_PAGE - 1)
+
+  if (error) {
+    console.error('Error fetching posts:', error)
+  }
+
+  const totalPages = Math.ceil((count || 0) / POSTS_PER_PAGE)
+  const hasNextPage = currentPage < totalPages
+  const hasPrevPage = currentPage > 1
 
   return (
-    <main className="flex-1">
-      {/* Hero Section */}
-      <section className="bg-gradient-to-r from-blue-50 to-indigo-50 py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-5xl font-bold text-gray-900 mb-6">
-            Chào mừng đến với Simple Blog
-          </h1>
-          <p className="text-xl text-gray-600 mb-8">
-            Chia sẻ những suy nghĩ của bạn với thế giới
-          </p>
-          <p className="text-lg text-gray-500 mb-4">
-            ✅ Supabase connection: {session ? 'Logged in' : 'Not logged in'} (OK)
-          </p>
-          <p className="text-sm text-gray-400">
-            Nếu bạn thấy dòng này, Supabase đã được cấu hình thành công!
-          </p>
-        </div>
-      </section>
+    <main className="max-w-4xl mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-8">Bài viết mới nhất</h1>
 
-      {/* Features Section */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-center mb-12 text-gray-900">
-            Tính Năng
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Feature 1 */}
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <div className="text-3xl mb-4">✍️</div>
-              <h3 className="text-xl font-bold mb-2">Viết Bài</h3>
-              <p className="text-gray-600">
-                Tạo và xuất bản những bài viết của bạn với dễ dàng
-              </p>
+      {posts && posts.length > 0 ? (
+        <>
+          <div className="space-y-6">
+            {posts.map((post) => (
+              <article
+                key={post.id}
+                className="bg-white p-6 rounded-lg shadow border border-gray-200"
+              >
+                {post.image_url && (
+                  <img
+                    src={post.image_url}
+                    alt={post.title}
+                    className="w-full h-48 object-cover rounded-md mb-4"
+                  />
+                )}
+
+                <Link href={`/posts/${post.slug}`}>
+                  <h2 className="text-2xl font-semibold hover:text-blue-600 transition-colors">
+                    {post.title}
+                  </h2>
+                </Link>
+
+                {post.excerpt && (
+                  <p className="text-gray-600 mt-2">{post.excerpt}</p>
+                )}
+
+                <div className="flex items-center gap-4 mt-4 text-sm text-gray-500">
+                  <span>
+                    Bởi {post.profiles?.display_name || 'Ẩn danh'}
+                  </span>
+                  <span>•</span>
+                  <span>
+                    {post.published_at
+                      ? new Date(post.published_at).toLocaleDateString('vi-VN')
+                      : 'Chưa xuất bản'}
+                  </span>
+                </div>
+
+                <Link
+                  href={`/posts/${post.slug}`}
+                  className="inline-block mt-4 text-blue-600 hover:text-blue-500"
+                >
+                  Đọc tiếp →
+                </Link>
+              </article>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between mt-12 pt-8 border-t">
+            <div className="text-sm text-gray-600">
+              Trang <strong>{currentPage}</strong> / <strong>{totalPages}</strong>
             </div>
 
-            {/* Feature 2 */}
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <div className="text-3xl mb-4">🔒</div>
-              <h3 className="text-xl font-bold mb-2">Bảo Mật</h3>
-              <p className="text-gray-600">
-                Dữ liệu của bạn được bảo vệ bằng Row Level Security
-              </p>
-            </div>
+            <div className="flex gap-4">
+              {hasPrevPage ? (
+                <Link
+                  href={`/?page=${currentPage - 1}`}
+                  className="px-4 py-2 bg-gray-200 text-gray-900 rounded-md hover:bg-gray-300 transition-colors"
+                >
+                  ← Trang trước
+                </Link>
+              ) : (
+                <button
+                  disabled
+                  className="px-4 py-2 bg-gray-100 text-gray-400 rounded-md cursor-not-allowed"
+                >
+                  ← Trang trước
+                </button>
+              )}
 
-            {/* Feature 3 */}
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <div className="text-3xl mb-4">💬</div>
-              <h3 className="text-xl font-bold mb-2">Bình Luận</h3>
-              <p className="text-gray-600">
-                Cho phép độc giả bình luận trên các bài viết của bạn
-              </p>
+              {hasNextPage ? (
+                <Link
+                  href={`/?page=${currentPage + 1}`}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Trang sau →
+                </Link>
+              ) : (
+                <button
+                  disabled
+                  className="px-4 py-2 bg-gray-100 text-gray-400 rounded-md cursor-not-allowed"
+                >
+                  Trang sau →
+                </button>
+              )}
             </div>
           </div>
+        </>
+      ) : (
+        <div className="text-center py-12 bg-gray-50 rounded-lg">
+          <p className="text-gray-500">Chưa có bài viết nào.</p>
         </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-indigo-600 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold text-white mb-4">
-            Sẵn sàng bắt đầu?
-          </h2>
-          <p className="text-xl text-blue-100 mb-8">
-            Đăng ký ngay để viết bài viết đầu tiên của bạn
-          </p>
-        </div>
-      </section>
+      )}
     </main>
   )
 }

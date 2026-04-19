@@ -1,75 +1,55 @@
-'use client'
+'use server'
 
-import { useAuth } from '@/lib/auth/context'
-import { logout } from '@/lib/auth/helpers'
-import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import Link from 'next/link'
+import { createClient } from '@lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { PostList } from '@/src/components/dashboard/post-list'
 
-export default function DashboardPage() {
-  const { user } = useAuth()
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
+export default async function DashboardPage() {
+  const supabase = await createClient()
 
-  const handleLogout = async () => {
-    setIsLoading(true)
-    const result = await logout()
+  const { data: { user } } = await supabase.auth.getUser()
 
-    if (result.success) {
-      router.push('/')
-    }
+  if (!user) {
+    redirect('/auth/login')
+  }
+
+  // Lấy tất cả bài viết của user (kể cả draft)
+  const { data: posts, error } = await supabase
+    .from('posts')
+    .select('*')
+    .eq('author_id', user.id)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Error fetching posts:', error)
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <button
-            onClick={handleLogout}
-            disabled={isLoading}
-            className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 disabled:bg-gray-400"
+    <main className="max-w-4xl mx-auto px-4 py-8">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">Bài viết của tôi</h1>
+        <Link
+          href="/dashboard/new"
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+        >
+          + Viết bài mới
+        </Link>
+      </div>
+
+      {posts && posts.length > 0 ? (
+        <PostList posts={posts} />
+      ) : (
+        <div className="text-center py-12 bg-gray-50 rounded-lg">
+          <p className="text-gray-500 mb-4">Bạn chưa có bài viết nào.</p>
+          <Link
+            href="/dashboard/new"
+            className="text-blue-600 hover:text-blue-500"
           >
-            {isLoading ? 'Đang đăng xuất...' : 'Đăng Xuất'}
-          </button>
+            Viết bài đầu tiên →
+          </Link>
         </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="bg-white rounded-lg shadow p-8">
-          <h2 className="text-2xl font-bold mb-6">Chào mừng!</h2>
-
-          <div className="space-y-4">
-            <div>
-              <p className="text-gray-600">Email:</p>
-              <p className="text-lg font-medium">{user?.email}</p>
-            </div>
-
-            <div>
-              <p className="text-gray-600">User ID:</p>
-              <p className="text-lg font-medium font-mono text-sm">{user?.id}</p>
-            </div>
-
-            <div className="pt-6 border-t">
-              <h3 className="text-xl font-bold mb-4">Chức năng:</h3>
-              <ul className="space-y-2 list-disc list-inside">
-                <li>📝 Viết bài viết mới</li>
-                <li>✏️ Chỉnh sửa bài viết của bạn</li>
-                <li>🗑️ Xóa bài viết</li>
-                <li>👤 Chỉnh sửa hồ sơ</li>
-                <li>💬 Xem bình luận</li>
-              </ul>
-            </div>
-
-            <div className="pt-6">
-              <p className="text-gray-600 text-sm">
-                ✅ Bạn đã đăng nhập thành công! Các tính năng tiếp theo sẽ được thêm vào.
-              </p>
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
+      )}
+    </main>
   )
 }

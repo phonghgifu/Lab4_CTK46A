@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { logout } from '@/app/actions/auth'
+import { SearchForm } from '@/components/search/search-form'
 
 export async function Header() {
   const supabase = await createClient()
@@ -14,10 +15,14 @@ export async function Header() {
             📝 Simple Blog
           </Link>
 
-          <nav className="flex items-center gap-6">
+          <nav className="flex items-center gap-6 flex-1">
             <Link href="/" className="text-gray-600 hover:text-gray-900 font-medium">
               Trang chủ
             </Link>
+
+            <div className="flex-1 max-w-xs">
+              <SearchForm />
+            </div>
 
             {user ? (
               <>
@@ -28,10 +33,10 @@ export async function Header() {
                   Dashboard
                 </Link>
                 <Link
-                  href="/posts/create"
+                  href="/profile"
                   className="text-gray-600 hover:text-gray-900 font-medium"
                 >
-                  Viết bài
+                  Hồ sơ
                 </Link>
                 <div className="flex items-center gap-4">
                   <span className="text-sm text-gray-600">
