@@ -120,7 +120,8 @@ export function PostForm({ post }: PostFormProps) {
         />
       </div>
 
-      <diImageUpload onImageUploaded={setImageUrl} disabled={loading} />
+      <div>
+        <ImageUpload onImageUploaded={setImageUrl} disabled={loading} />
       </div>
 
       {imageUrl && (
@@ -135,7 +136,6 @@ export function PostForm({ post }: PostFormProps) {
       )}
 
       <div>
-        <v>
         <label htmlFor="content" className="block text-sm font-medium text-gray-700">
           Nội dung
         </label>
