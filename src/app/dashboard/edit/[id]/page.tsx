@@ -1,4 +1,4 @@
-import { createClient } from '@lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import { PostForm } from '@/components/dashboard/post-form'
 
